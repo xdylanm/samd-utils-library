@@ -73,8 +73,6 @@ uint32_t init(
   // configure the generator of the generic clock, which is 48MHz clock; 
   // if DIVSEL = 0 --> fgclk = 48/div_factor MHz (or fgclk = 48MHz if div_factor = 0)
   // if DIVSEL = 1 --> fgclk = 48/(2 << div_factor) MHz
-  const int GCLK_DIVSEL_DIRECT = 0;
-  const int GCLK_DIVSEL_POW2 = 1;
   if (clk_divsel == GCLK_DIVSEL_POW2) {
     reg_val |= GCLK_GENCTRL_DIVSEL;
   }

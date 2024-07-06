@@ -6,6 +6,8 @@
 
 namespace samd_utils {
 
+static const int GCLK_DIVSEL_DIRECT = 0;
+static const int GCLK_DIVSEL_POW2 = 1;
 
 namespace gclk {
 
