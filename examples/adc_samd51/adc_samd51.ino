@@ -34,7 +34,7 @@ struct adc_config_def
 #endif
 
   static const uint8_t clk_div = 75;
-  static const DIVSEL_T clk_divsel = 0;     // GCLK_DIVSEL_DIRECT
+  static const int clk_divsel = 0;          // GCLK_DIVSEL_DIRECT
   
   static const uint8_t adc_prescaler = 0;   // 2^(0+1) = 2
   static const uint8_t adc_samplen = 7;     // 1 + 7 = 8
