@@ -7,10 +7,6 @@ using namespace samd_utils;
 //    a. simplest solution: connect to ground or 3V3
 //    b. more interesting: connect to the wiper of a pot between 3V3 & ground
 
-#if !defined(__SAMD51__)
-#error Unsupported target
-#endif
-
 // output pin to monitor the conversion rate of the ADC 
 #define PIN_DREADY_STATE 15
 
@@ -38,7 +34,7 @@ struct adc_config_def
 #endif
 
   static const uint8_t clk_div = 75;
-  static const DIVSEL_T clk_divsel = GCLK_DIVSEL_DIRECT;
+  static const DIVSEL_T clk_divsel = 0;     // GCLK_DIVSEL_DIRECT
   
   static const uint8_t adc_prescaler = 0;   // 2^(0+1) = 2
   static const uint8_t adc_samplen = 7;     // 1 + 7 = 8

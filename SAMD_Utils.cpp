@@ -1,5 +1,9 @@
 #include "SAMD_Utils.h"
 
+#if (defined(__SAMD21E18A__) || defined(__SAMD21G18A__)) && !defined(__SAMD21__)
+#define __SAMD21__
+#endif
+
 #define FCLK_DFLL48M 48000000
 
 namespace samd_utils {
@@ -36,7 +40,7 @@ namespace gclk {
 uint32_t init(
   int const clk_id, 
   uint8_t const clk_div, 
-  DIVSEL_T const clk_divsel, 
+  int const clk_divsel, 
   bool const en_gclk_io /*= false*/) 
 {
   // input checking: can't bit shift 48000000 more than 24 bits and have > 0 fgclk
@@ -62,11 +66,15 @@ uint32_t init(
   // build the register value to enable the clock and set its source to DFLL48M (OE & DIVSEL handled separately)
   uint32_t reg_val = GCLK_GENCTRL_DIV(clk_div) | GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL;
 
+#else
+#error Unsupported target
 #endif
 
   // configure the generator of the generic clock, which is 48MHz clock; 
   // if DIVSEL = 0 --> fgclk = 48/div_factor MHz (or fgclk = 48MHz if div_factor = 0)
   // if DIVSEL = 1 --> fgclk = 48/(2 << div_factor) MHz
+  const int GCLK_DIVSEL_DIRECT = 0;
+  const int GCLK_DIVSEL_POW2 = 1;
   if (clk_divsel == GCLK_DIVSEL_POW2) {
     reg_val |= GCLK_GENCTRL_DIVSEL;
   }

@@ -7,10 +7,6 @@ using namespace samd_utils;
 //    a. simplest solution: connect to ground or 3V3
 //    b. more interesting: connect to the wiper of a pot between 3V3 & ground
 
-#if !defined(__SAMD21__)
-#error Unsupported target
-#endif
-
 #if defined(ADAFRUIT_QTPY_M0)
   #define PIN_DREADY_STATE 4
 #elif defined(ADAFRUIT_ITSYBITSY_M0)
@@ -55,7 +51,7 @@ struct adc_config_def
 #endif
 
   static const uint8_t clk_div = 75;
-  static const DIVSEL_T clk_divsel = GCLK_DIVSEL_DIRECT;
+  static const int clk_divsel = 0;          // 0 = direct, 1 = pow-2
   
   static const uint8_t adc_prescaler = 0;   // 2^(0+2) = 4
   static const uint8_t adc_samplen = 6;     // 1[gain] + 12[bits]/2 + 6[samplen]/2 = 10
