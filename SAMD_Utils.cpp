@@ -170,8 +170,9 @@ void init(
   ADC->REFCTRL.reg |= ADC_REFCTRL_REFSEL_INTVCC1; // VDDANA/2, combine with gain DIV2 for full VCC range
 
   // Average control 
-  ADC->AVGCTRL.reg = ADC_AVGCTRL_ADJRES(adc_samplenum) | ADC_AVGCTRL_SAMPLENUM(adc_samplenum);
   uint16_t const ressel = adc_samplenum == 0 ? ADC_CTRLB_RESSEL_12BIT : ADC_CTRLB_RESSEL_16BIT;
+  uint8_t const adjres = adc_samplenum <= 4 ? adc_samplenum : 4; 
+  ADC->AVGCTRL.reg = ADC_AVGCTRL_ADJRES(adjres) | ADC_AVGCTRL_SAMPLENUM(adc_samplenum);
 
   // Sampling time = (SAMPLEN+1)*(CLK_ADC/2), adds half clock-cycles
   ADC->SAMPCTRL.reg = ADC_SAMPCTRL_SAMPLEN(adc_samplen);
@@ -181,7 +182,7 @@ void init(
   ADC->INPUTCTRL.reg |= ADC_INPUTCTRL_GAIN_DIV2 | ADC_INPUTCTRL_MUXNEG_GND | (0x0000001F & (uint32_t)ain_pin);
   while (ADC->STATUS.bit.SYNCBUSY);
   
-  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER(adc_prescaler) | ressel | (run_continous ? ADC_CTRLB_FREERUN : 0); 
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER(adc_prescaler) | ressel | (run_continuous ? ADC_CTRLB_FREERUN : 0); 
   while (ADC->STATUS.bit.SYNCBUSY);
 
   if (generate_interrupt) {
@@ -204,8 +205,9 @@ void init(
   while (ADC0->SYNCBUSY.bit.REFCTRL);
   
   // Average control 
+  uint8_t const adjres = adc_samplenum <= 4 ? adc_samplenum : 4; 
   uint16_t const ressel = adc_samplenum == 0 ? ADC_CTRLB_RESSEL_12BIT : ADC_CTRLB_RESSEL_16BIT;
-  ADC0->AVGCTRL.reg = ADC_AVGCTRL_ADJRES(adc_samplenum) | ADC_AVGCTRL_SAMPLENUM(adc_samplenum);
+  ADC0->AVGCTRL.reg = ADC_AVGCTRL_ADJRES(adjres) | ADC_AVGCTRL_SAMPLENUM(adc_samplenum);
   while (ADC0->SYNCBUSY.bit.AVGCTRL);
 
   // Sampling time = (SAMPLEN+1)*(CLK_ADC), cannot use >0 with offset comp
@@ -217,7 +219,7 @@ void init(
   ADC0->INPUTCTRL.reg =  ADC_INPUTCTRL_MUXNEG_GND | (ADC_INPUTCTRL_MUXPOS_Msk & (uint32_t)ain_pin);
   while (ADC0->SYNCBUSY.bit.INPUTCTRL);
 
-  ADC0->CTRLB.reg = ressel | (run_continous ? ADC_CTRLB_FREERUN : 0); 
+  ADC0->CTRLB.reg = ressel | (run_continuous ? ADC_CTRLB_FREERUN : 0); 
   while (ADC0->SYNCBUSY.bit.CTRLB);
   
   if (generate_interrupt) {
