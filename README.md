@@ -7,3 +7,7 @@ Arduino library with utilities for accessing low-level functionality on the SAMD
 * Adafruit Itsy Bitsy M0 (SAMD21G18)
 * Adafruit Itsy Bitsy M4 (SAMD51G19)
 
+### References
+
+1. https://blog.thea.codes/getting-the-most-out-of-the-samd21-adc/
+

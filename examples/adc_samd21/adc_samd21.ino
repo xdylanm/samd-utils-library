@@ -84,8 +84,14 @@ void setup() {
   gclk::init(adc_config.gclk_id, adc_config.clk_div, adc_config.clk_divsel, true);
 
   adc::init_iopin_in(adc_config.adc_iopin, adc_config.adc_port);
-  adc::init(adc_config.adc_inputctrl_muxpos_ain, adc_config.gclk_id, 
-    adc_config.adc_prescaler, adc_config.adc_samplen, adc_config.adc_samplenum);
+  adc::init(
+    adc_config.adc_inputctrl_muxpos_ain, 
+    adc_config.gclk_id, 
+    true, 
+    true, // run_continuous, generate_interrupt
+    adc_config.adc_prescaler, 
+    adc_config.adc_samplen, 
+    adc_config.adc_samplenum);
 
   Serial.begin(115200);
 

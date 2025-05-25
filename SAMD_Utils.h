@@ -18,8 +18,14 @@ void init_iopin_out(int iopin, int port_id = 0);
 
 namespace adc {
 
-void init(uint8_t ain_pin, uint16_t genclk_id, uint8_t adc_prescaler = 0, uint8_t adc_samplen = 0, uint8_t adc_samplenum = 0); 
-void start();
+void init(uint8_t ain_pin, uint16_t genclk_id, bool run_continuous = true, bool generate_interrupt = true,
+          uint8_t adc_prescaler = 0, uint8_t adc_samplen = 0, uint8_t adc_samplenum = 0); 
+void select_input(uint8_t ain_pin);
+void start(bool wait = false);
+inline uint32_t get_result() {
+    uint32_t const result = ADC->RESULT.reg;
+    return result;
+}
 void stop();
 void reset();
 

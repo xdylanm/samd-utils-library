@@ -124,9 +124,33 @@ void init_iopin_out(int const iopin, int const port_id /*= 0*/)
 
 namespace adc {
 
+/*
+  \brief Configure the ADC
+
+  \param ain_pin Index of AIN corresponding to IO pin, e.g. PA02 maps to AIN[0] on SAMD21
+  \param genclk_id The GCLK ID (see gclk::init)
+  \param run_continuous Enable free-running mode (deafult true)
+  \param generate_interrupt Enable interrupts on conversion complete (default true)
+  \param adc_prescaler ADC pre-scaler code 0-7: divide clock by 2^(p+2) (default 0 = DIV4)
+  \param adc_samplen Number of half-clock cycles to sample input for conversion 
+    (SAMPCTRL.SAMPLEN, see section 33.6.5.1 in SAMD21 datasheet)
+  \param adc_samplenum Number of conversions to average
+
+  \pre The IO pin is configured for read to ADC (call adc::init_iopin_in)
+  \pre The GCLK \a genclk_id is configured
+  \pre The ADC is disabled (call adc::stop)
+
+  \post The ADC is configured and enabled but not started
+
+  \see https://blog.thea.codes/reading-analog-values-with-the-samd-adc/
+  \see https://blog.thea.codes/getting-the-most-out-of-the-samd21-adc/
+
+*/
 void init(
     uint8_t ain_pin, 
     uint16_t const genclk_id, 
+    bool const run_continuous /* = true*/,
+    bool const generate_interrupt /* = true*/,
     uint8_t const adc_prescaler /* = 0*/, 
     uint8_t const adc_samplen /* = 0*/, 
     uint8_t const adc_samplenum /* = 0*/) 
@@ -147,6 +171,7 @@ void init(
 
   // Average control 
   ADC->AVGCTRL.reg = ADC_AVGCTRL_ADJRES(adc_samplenum) | ADC_AVGCTRL_SAMPLENUM(adc_samplenum);
+  uint16_t const ressel = adc_samplenum == 0 ? ADC_CTRLB_RESSEL_12BIT : ADC_CTRLB_RESSEL_16BIT;
 
   // Sampling time = (SAMPLEN+1)*(CLK_ADC/2), adds half clock-cycles
   ADC->SAMPCTRL.reg = ADC_SAMPCTRL_SAMPLEN(adc_samplen);
@@ -156,15 +181,20 @@ void init(
   ADC->INPUTCTRL.reg |= ADC_INPUTCTRL_GAIN_DIV2 | ADC_INPUTCTRL_MUXNEG_GND | (0x0000001F & (uint32_t)ain_pin);
   while (ADC->STATUS.bit.SYNCBUSY);
   
-  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER(adc_prescaler) | ADC_CTRLB_RESSEL_12BIT | ADC_CTRLB_FREERUN; 
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER(adc_prescaler) | ressel | (run_continous ? ADC_CTRLB_FREERUN : 0); 
   while (ADC->STATUS.bit.SYNCBUSY);
 
-  // setup the interrupt
-  ADC->INTENSET.reg |= ADC_INTENSET_RESRDY; // enable ADC interrupt on result ready
-  while (ADC->STATUS.bit.SYNCBUSY);
+  if (generate_interrupt) {
+    // setup the interrupt
+    ADC->INTENSET.reg |= ADC_INTENSET_RESRDY; // enable ADC interrupt on result ready
+    while (ADC->STATUS.bit.SYNCBUSY);
 
-  NVIC_SetPriority(ADC_IRQn, 3); //set priority of the interrupt
-  NVIC_EnableIRQ(ADC_IRQn); // enable ADC interrupts
+    NVIC_SetPriority(ADC_IRQn, 3); //set priority of the interrupt
+    NVIC_EnableIRQ(ADC_IRQn); // enable ADC interrupts
+  }
+
+  ADC->CTRLA.bit.ENABLE = 1;
+
 #elif defined(__SAMD51__)
 
   ADC0->CTRLA.reg = ADC_CTRLA_PRESCALER(adc_prescaler);   // not enabled yet
@@ -174,6 +204,7 @@ void init(
   while (ADC0->SYNCBUSY.bit.REFCTRL);
   
   // Average control 
+  uint16_t const ressel = adc_samplenum == 0 ? ADC_CTRLB_RESSEL_12BIT : ADC_CTRLB_RESSEL_16BIT;
   ADC0->AVGCTRL.reg = ADC_AVGCTRL_ADJRES(adc_samplenum) | ADC_AVGCTRL_SAMPLENUM(adc_samplenum);
   while (ADC0->SYNCBUSY.bit.AVGCTRL);
 
@@ -186,36 +217,76 @@ void init(
   ADC0->INPUTCTRL.reg =  ADC_INPUTCTRL_MUXNEG_GND | (ADC_INPUTCTRL_MUXPOS_Msk & (uint32_t)ain_pin);
   while (ADC0->SYNCBUSY.bit.INPUTCTRL);
 
-  ADC0->CTRLB.reg = ADC_CTRLB_RESSEL_12BIT | ADC_CTRLB_FREERUN; 
+  ADC0->CTRLB.reg = ressel | (run_continous ? ADC_CTRLB_FREERUN : 0); 
   while (ADC0->SYNCBUSY.bit.CTRLB);
   
-  // setup the interrupt
-  ADC0->INTENSET.reg |= ADC_INTENSET_RESRDY; // enable ADC interrupt on result ready
-  
-  NVIC_SetPriority(ADC0_1_IRQn, 3); //set priority of the interrupt
-  NVIC_EnableIRQ(ADC0_1_IRQn); // enable ADC interrupts
+  if (generate_interrupt) {
+    // setup the interrupt
+    ADC0->INTENSET.reg |= ADC_INTENSET_RESRDY; // enable ADC interrupt on result ready
+    
+    NVIC_SetPriority(ADC0_1_IRQn, 3); //set priority of the interrupt
+    NVIC_EnableIRQ(ADC0_1_IRQn); // enable ADC interrupts
+  }
+
+  ADC0->CTRLA.bit.ENABLE = 1;
 
 #endif
   
 }
 
-void start() 
+void select_input(uint8_t ain_pin) 
 {
 #if defined(__SAMD21__)
-  ADC->CTRLA.bit.ENABLE = 1;
+  // Input control: set gain to div by two so ADC has measurement range of VCC, no diff measurement so set neg to gnd,
+  // pos input set to pin AIN[i]. See MUXPOS[4:0] for more detail on AIN[i] pin selection
+  ADC->INPUTCTRL.reg = ADC_INPUTCTRL_GAIN_DIV2 | ADC_INPUTCTRL_MUXNEG_GND | (0x0000001F & (uint32_t)ain_pin);
   while (ADC->STATUS.bit.SYNCBUSY);
+#elif defined(__SAMD51__) 
+  // Input control: no diff measurement so set neg to gnd, pos input set to pin AIN[i]
+  // see MUXPOS[4:0] for more detail on AIN[i] pin selection
+  ADC0->INPUTCTRL.reg =  ADC_INPUTCTRL_MUXNEG_GND | (ADC_INPUTCTRL_MUXPOS_Msk & (uint32_t)ain_pin);
+  while (ADC0->SYNCBUSY.bit.INPUTCTRL);
+#endif
+}
+
+/*! 
+  \brief Start ADC conversion(s)
   
+  If the ADC is configured in free-running mode and/or if interrupts are enabled, 
+  this call should be non-blocking.
+
+  \param wait Block until the conversion is complete before returning (default false)
+*/
+void start(bool wait /* = false*/) 
+{
+#if defined(__SAMD21__)
+  
+  while (ADC->STATUS.bit.SYNCBUSY);
   ADC->SWTRIG.reg = ADC_SWTRIG_START; // Start ADC conversion
   while(ADC->STATUS.bit.SYNCBUSY);    // Wait for sync
+
+  if (wait) {
+    while (ADC->INTFLAG.bit.RESRDY == 0);
+    ADC->INTFLAG.reg = ADC_INTFLAG_RESRDY;  // clear flag
+  }
+
 #elif defined(__SAMD51__)
-  ADC0->CTRLA.bit.ENABLE = 1;
   while (ADC0->SYNCBUSY.bit.ENABLE);
   
   ADC0->SWTRIG.reg = ADC_SWTRIG_START; // Start ADC conversion
   while(ADC0->SYNCBUSY.bit.SWTRIG);    // Wait for sync
+
+  if (wait) {
+    while (ADC0->INTFLAG.bit.RESRDY == 0);
+    ADC0->INTFLAG.reg = ADC_INTFLAG_RESRDY;  // clear flag
+  }
+
 #endif
 }
 
+/*! 
+  \brief Stop the ADC by setting the enabled state to false.
+*/
 void stop() 
 {
 #if defined(__SAMD21__)
@@ -227,6 +298,9 @@ void stop()
 #endif
 }
 
+/*!
+  \brief Reset the ADC by writing the software reset (SWRST) bit.
+*/
 void reset()
 {
 #if defined(__SAMD21__)
